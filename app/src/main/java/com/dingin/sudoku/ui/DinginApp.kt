@@ -80,7 +80,9 @@ fun timeText(millis: Long): String {
             BoxWithConstraints(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.TopCenter) {
                 val viewportHeight = maxHeight
                 val horizontalPadding = if (maxWidth < 400.dp) 16.dp else 24.dp
-                val contentWidth = minOf(maxWidth, 540.dp) - horizontalPadding * 2
+                val splitGame = state.screen == Screen.GAME && useSplitGameLayout(maxWidth.value, maxHeight.value, LocalDensity.current.fontScale)
+                val maxContentWidth = if (splitGame) 1000.dp else 540.dp
+                val contentWidth = minOf(maxWidth, maxContentWidth) - horizontalPadding * 2
                 val fontScale = LocalDensity.current.fontScale
                 if (!state.ready) CircularProgressIndicator(Modifier.align(Alignment.Center))
                 else if (state.fatalError) {
@@ -91,14 +93,14 @@ fun timeText(millis: Long): String {
                         Button(onClick = model::retryLoad) { Text("Tekrar dene") }
                     }
                 } else {
-                    Column(Modifier.widthIn(max = 540.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = horizontalPadding)) {
-                        AppHeader(state.screen, onHome = { model.open(Screen.HOME) }, onSettings = { settings = true })
+                    Column(Modifier.widthIn(max = maxContentWidth).fillMaxWidth().verticalScroll(remember(state.screen) { ScrollState(0) }).padding(horizontal = horizontalPadding)) {
+                        if (!splitGame) AppHeader(state.screen, onHome = { model.open(Screen.HOME) }, onSettings = { settings = true })
                         when (state.screen) {
                             Screen.HOME -> Home(state, model, contentWidth.value, fontScale) {
                                 if (state.profile.game?.finished == false) confirmNew = true else model.startNew()
                             }
-                            Screen.GAME -> state.profile.game?.let { GameScreen(state, it, model, contentWidth.value, (viewportHeight - 76.dp).value, fontScale) }
-                            Screen.STATS -> Statistics(state.profile)
+                            Screen.GAME -> state.profile.game?.let { GameScreen(state, it, model, contentWidth.value, (viewportHeight - if (splitGame) 8.dp else 76.dp).value, fontScale, splitGame) { settings = true } }
+                            Screen.STATS -> Statistics(state.profile) { model.open(Screen.GAME) }
                         }
                         if (state.message != null && !state.generating) {
                             Surface(color = colors.secondaryContainer, shape = RoundedCornerShape(16.dp), modifier = Modifier.padding(top = 12.dp)) {
@@ -173,7 +175,7 @@ fun timeText(millis: Long): String {
             }
         }
     }
-    Text("Bugünün temposunu seç", Modifier.padding(top = 28.dp, bottom = 6.dp), style = MaterialTheme.typography.headlineMedium)
+    Text("Bugünün temposunu seç", Modifier.padding(top = 20.dp, bottom = 6.dp), style = MaterialTheme.typography.headlineMedium)
     Text("Her bulmaca özgün. Her çözüm tek.", color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
     Spacer(Modifier.height(16.dp))
     Difficulty.entries.chunked(if (width < 320f || fontScale > 1.3f) 1 else 2).forEach { pair ->
@@ -213,13 +215,23 @@ fun timeText(millis: Long): String {
     }
 }
 
-@Composable private fun GameScreen(state: UiState, game: Game, model: GameViewModel, width: Float, height: Float, fontScale: Float) {
+@Composable private fun GameScreen(state: UiState, game: Game, model: GameViewModel, width: Float, height: Float, fontScale: Float, split: Boolean, onSettings: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    val side = boardSizeDp(minOf(width, 450f), height, fontScale).dp
-    val progress = gameProgress(game)
+    val canEnter = !state.paused && !game.locked(state.selected) && (!state.noteMode || game.values.getOrNull(state.selected) == 0)
+    val paneWidth = if (split) (width - 20f) / 2 else width
+    val side = if (split) minOf(paneWidth, maxOf(270f, height - 68f)).dp else boardSizeDp(minOf(width, 450f), height, fontScale).dp
+    val progress = remember(game.values, game.puzzle) { gameProgress(game) }
+    val clashes = remember(game.values, state.profile.checkErrors) { if (state.profile.checkErrors) conflictingCells(game.values) else emptySet() }
+    val mistakes = remember(game.values, game.puzzle.solution, state.profile.checkErrors) { if (state.profile.checkErrors) game.errors() else emptySet() }
+    val result = remember(game.values, game.finished, state.profile.records) { completionDetails(game, state.profile) }
+    if (result != null) {
+        if (split) AppHeader(Screen.GAME, { model.open(Screen.HOME) }, onSettings)
+        CompletionScreen(game, result, height, !state.generating,
+            onNew = { model.choose(game.puzzle.difficulty); model.startNew() }, onHome = { model.open(Screen.HOME) })
+        return
+    }
     var hintDialog by remember { mutableStateOf(false) }
-    Column(Modifier.fillMaxWidth().heightIn(min = height.coerceAtLeast(0f).dp).testTag("gameLayout"), verticalArrangement = Arrangement.SpaceBetween) {
-        Column {
+    val titleRow: @Composable () -> Unit = {
             Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(game.puzzle.difficulty.title, Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium)
                 Surface(color = colors.surfaceVariant, shape = RoundedCornerShape(12.dp)) {
@@ -233,6 +245,10 @@ fun timeText(millis: Long): String {
                     Icon(if (state.paused) Icons.Outlined.PlayArrow else Icons.Outlined.Pause, if (state.paused) "Devam et" else "Duraklat")
                 }
             }
+    }
+    val boardContent: @Composable () -> Unit = {
+        Column {
+            if (!split) titleRow()
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Box(Modifier.size(side)) {
                     if (state.paused) Surface(color = colors.surfaceVariant, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxSize()) {
@@ -256,38 +272,45 @@ fun timeText(millis: Long): String {
                     color = if (state.saveError) colors.error else colors.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.testTag("saveStatus"))
             }
         }
+    }
+    val controlsContent: @Composable () -> Unit = {
         Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-            if (game.finished) {
-                Surface(color = colors.primaryContainer, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth().testTag("completion")) {
-                    Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Outlined.EmojiEvents, null, Modifier.size(36.dp), tint = colors.primary)
-                        Text("Tebrikler, tamamladın!", Modifier.padding(vertical = 12.dp), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
-                        Text("${timeText(game.elapsedMillis)} · ${game.hints} ipucu · ${game.mistakes} hata", fontSize = 13.sp)
-                        Button(onClick = { model.open(Screen.HOME) }, modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) { Text("Yeni bir bulmaca") }
-                    }
-                }
-            } else {
+            if (split) { AppHeader(Screen.GAME, { model.open(Screen.HOME) }, onSettings); titleRow() }
                 ActionToolbar(canUndo = game.history.isNotEmpty(), canErase = !game.locked(state.selected), enabled = !state.paused,
                     notesActive = state.noteMode, undo = model::undo, erase = model::erase, notes = model::toggleNotes, hint = { hintDialog = true })
                 Spacer(Modifier.height(12.dp))
-                (1..9).toList().chunked(keypadColumns(width, fontScale)).forEach { digits ->
-                    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                (1..9).toList().chunked(keypadColumns(paneWidth, fontScale)).forEach { digits ->
+                    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         if (digits.size == 4) Spacer(Modifier.weight(.5f))
                         digits.forEach { n ->
-                            Surface(onClick = { model.digit(n) }, enabled = !state.paused && !game.locked(state.selected), color = colors.surface,
-                                shape = RoundedCornerShape(10.dp), modifier = Modifier.weight(1f).heightIn(min = 56.dp).testTag("digit_$n")) {
+                            val marked = digitMarked(game, state.selected, n, state.noteMode)
+                            Surface(onClick = { model.digit(n) }, enabled = canEnter, color = if (marked) colors.primaryContainer else colors.surface,
+                                border = if (marked) BorderStroke(1.dp, colors.primary) else null,
+                                shape = RoundedCornerShape(10.dp), modifier = Modifier.weight(1f).heightIn(min = 56.dp).testTag("digit_$n").semantics { selected = marked; stateDescription = if (marked) (if (state.noteMode) "Aday işaretli" else "Seçili rakam") else "" }) {
                                 Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 12.dp)) {
-                                    Text(n.toString(), fontSize = 23.sp, fontWeight = FontWeight.Medium, color = colors.primary)
+                                    Text(n.toString(), fontSize = 23.sp, fontWeight = if (marked) FontWeight.Bold else FontWeight.Medium, color = if (canEnter) colors.primary else colors.onSurfaceVariant.copy(alpha = .6f))
                                 }
                             }
                         }
                         if (digits.size == 4) Spacer(Modifier.weight(.5f))
                     }
                 }
-                Text(if (state.noteMode) "Not modu açık · Adaylarını işaretle." else "Kendi hızında, bir hücre daha.",
+                Text(when {
+                    state.noteMode -> "Not modu açık · Adaylarını işaretle."
+                    state.selected in clashes -> "× Rakam satır, sütun veya bölgede çakışıyor."
+                    state.selected in mistakes -> "! Bu rakam çözüme uymuyor."
+                    else -> "Kendi hızında, bir hücre daha."
+                },
                     Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp).testTag("gameFooter"), textAlign = TextAlign.Center, fontSize = 12.sp, color = colors.onSurfaceVariant)
-            }
         }
+    }
+    if (split) {
+        Row(Modifier.fillMaxWidth().testTag("splitGameLayout"), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            Box(Modifier.weight(1f)) { boardContent() }
+            Box(Modifier.weight(1f)) { controlsContent() }
+        }
+    } else Column(Modifier.fillMaxWidth().heightIn(min = height.coerceAtLeast(0f).dp).testTag("gameLayout"), verticalArrangement = Arrangement.spacedBy(if (height < 650f) 8.dp else 20.dp, Alignment.CenterVertically)) {
+        boardContent(); controlsContent()
     }
     if (hintDialog) AlertDialog(onDismissRequest = { hintDialog = false }, title = { Text("Bir adım yardım ister misin?") },
         text = { Text("Seçili hücreye doğru sayı yerleştirilir. Seçim yoksa boş veya yanlış bir hücre tamamlanır.") },
@@ -295,7 +318,7 @@ fun timeText(millis: Long): String {
         dismissButton = { TextButton(onClick = { hintDialog = false }) { Text("Kendim deneyeyim") } })
 }
 
-@Composable private fun Statistics(profile: Profile) {
+@Composable private fun Statistics(profile: Profile, onContinue: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val stats = recordedStatistics(profile)
     Text("Her adım bir ilerleme.", style = MaterialTheme.typography.headlineMedium)
@@ -307,12 +330,29 @@ fun timeText(millis: Long): String {
         }
     }
     Spacer(Modifier.height(14.dp))
-    StatMetric("En iyi süre", stats.bestMillis?.let(::timeText) ?: "—", "statBest")
-    StatMetric("Ortalama süre", stats.averageMillis?.let(::timeText) ?: "—", "statAverage")
+    if (LocalDensity.current.fontScale > 1.3f) {
+        StatMetric("En iyi süre", stats.bestMillis?.let(::timeText) ?: "—", "statBest")
+        StatMetric("Ortalama süre", stats.averageMillis?.let(::timeText) ?: "—", "statAverage")
+    } else Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(Modifier.weight(1f)) { StatMetric("En iyi süre", stats.bestMillis?.let(::timeText) ?: "—", "statBest") }
+        Box(Modifier.weight(1f)) { StatMetric("Ortalama süre", stats.averageMillis?.let(::timeText) ?: "—", "statAverage") }
+    }
     StatMetric("Kayıtlı toplam oyun süresi", timeText(stats.totalMillis), "statTotal")
     StatMetric("Başarı oranı", "Hesaplanamıyor", "statSuccess")
     Text("Başlatılan ve bırakılan oyun sayısı kaydedilmediği için başarı oranı hesaplanamaz.",
         Modifier.padding(top = 2.dp, bottom = 18.dp), fontSize = 12.sp, color = colors.onSurfaceVariant)
+    profile.game?.let { game ->
+        val progress = gameProgress(game)
+        Surface(color = colors.secondaryContainer, shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp).testTag("savedProgress")) {
+            Column(Modifier.padding(16.dp)) {
+                Text(if (game.finished) "Son tamamlanan oyun" else "Kayıtlı ilerlemen", style = MaterialTheme.typography.titleMedium)
+                Text("${game.puzzle.difficulty.title} · ${timeText(game.elapsedMillis)}", Modifier.padding(top = 4.dp))
+                Text("${progress.correct} / ${progress.required} doğru hücre", Modifier.padding(top = 4.dp), fontSize = 12.sp)
+                LinearProgressIndicator(progress = { progress.fraction }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                TextButton(onClick = onContinue, modifier = Modifier.testTag("statsContinue")) { Text(if (game.finished) "Son sonucu gör" else "Oyuna devam et") }
+            }
+        }
+    }
     Difficulty.entries.forEach { d ->
         val records = profile.records.filter { it.difficulty == d }
         Surface(color = colors.surface, shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
@@ -347,7 +387,7 @@ fun timeText(millis: Long): String {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Hata kontrolü", style = MaterialTheme.typography.titleMedium)
-                    Text("Çözüme uymayan sayıları vurgula.", fontSize = 12.sp)
+                    Text("Yanlış ve çakışan rakamları vurgula.", fontSize = 12.sp)
                 }
                 Switch(checked = state.profile.checkErrors, onCheckedChange = { model.toggleErrors() }, modifier = Modifier.testTag("checkErrors"))
             }

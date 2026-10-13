@@ -171,4 +171,81 @@ class AppTest {
         }
     }
 
+    @Test fun duplicateGivenAndEntryAreMarkedAndEraseClearsClash() {
+        continueGame(); val i = cell(); val peer = Sudoku.peers[i].first { puzzle.givens[it] != 0 }; val wrong = puzzle.givens[peer]
+        compose.onNodeWithTag("cell_$i").performClick(); compose.onNodeWithTag("digit_$wrong").performScrollTo().performClick()
+        waitSave { it.game!!.values[i] == wrong }
+        for (index in listOf(i, peer)) {
+            compose.onNodeWithTag("cell_$index").assert(SemanticsMatcher.expectValue(CellFillKey, "ERROR"))
+            compose.onNodeWithTag("cell_$index").assert(SemanticsMatcher("Çakışma açıklaması") { n -> n.config.getOrNull(SemanticsProperties.ContentDescription)?.any { it.contains("çakışan rakam") } == true })
+        }
+        compose.onNodeWithTag("erase").performScrollTo().performClick(); waitSave { it.game!!.values[i] == 0 }
+        compose.onNodeWithTag("cell_$peer").assert(SemanticsMatcher.expectValue(CellFillKey, "RELATED"))
+    }
+    @Test fun digitSelectionAndNotesRemainVisibleAfterUndoAndErase() {
+        continueGame(); val i = cell(); val digit = puzzle.solution[i]
+        compose.onNodeWithTag("cell_$i").performClick(); compose.onNodeWithTag("digit_$digit").performScrollTo().performClick()
+        compose.onNodeWithTag("digit_$digit").assertIsSelected()
+        compose.onNodeWithTag("erase").performClick(); waitSave { it.game!!.values[i] == 0 }
+        compose.onNodeWithTag("digit_$digit").assertIsNotSelected()
+        compose.onNodeWithTag("notes").performClick()
+        for (n in listOf(3, 7)) { compose.onNodeWithTag("digit_$n").performClick(); compose.onNodeWithTag("digit_$n").assertIsSelected() }
+        compose.onNodeWithTag("undo").performClick(); compose.onNodeWithTag("digit_7").assertIsNotSelected()
+        compose.onNodeWithTag("erase").performClick(); compose.onNodeWithTag("digit_3").assertIsNotSelected()
+    }
+    @Test fun finishedResultShowsRecordedBestAndStartsSameDifficulty() {
+        scenario.close(); val givens = puzzle.solution.toMutableList().apply { this[0] = 0 }
+        val p = Puzzle(givens, puzzle.solution, Difficulty.HARD)
+        ProfileStore(file).save(Profile(500, Game("finish", p, elapsedMillis = 65_000), listOf(Record("older", Difficulty.HARD, 60_000, 0, 0))))
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("continueGame").fetchSemanticsNodes().isNotEmpty() }
+        continueGame(); compose.onNodeWithTag("cell_0").performClick(); compose.onNodeWithTag("digit_${puzzle.solution[0]}").performScrollTo().performClick()
+        waitSave { it.game!!.finished && it.records.size == 2 }
+        compose.onNodeWithTag("resultBest").assertTextEquals("01:00"); compose.onNodeWithTag("resultDifficulty").assertTextEquals("Zor")
+        val elapsed = saved().game!!.elapsedMillis; scenario.recreate(); Thread.sleep(1200)
+        assertEquals(elapsed, saved().game!!.elapsedMillis); assertEquals(2, saved().records.size)
+        compose.onNodeWithTag("resultNewGame").performScrollTo().performClick()
+        compose.waitUntil(25_000) { compose.onAllNodesWithTag("board").fetchSemanticsNodes().isNotEmpty() }
+        waitSave { it.game!!.id != "finish" }; assertEquals(Difficulty.HARD, saved().game!!.puzzle.difficulty); assertEquals(2, saved().records.size)
+    }
+    @Test fun rotationKeepsGameAndPlacesControlsBesideBoard() {
+        continueGame(); val i = cell(); compose.onNodeWithTag("cell_$i").performClick(); compose.onNodeWithTag("notes").performClick(); compose.onNodeWithTag("digit_3").performScrollTo().performClick()
+        waitSave { it.game!!.notes[i] != 0 }; val before = saved().game!!
+        try {
+            scenario.onActivity { it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
+            compose.waitUntil(15_000) { compose.onAllNodesWithTag("splitGameLayout").fetchSemanticsNodes().isNotEmpty() }
+            val board = compose.onNodeWithTag("board").fetchSemanticsNode().boundsInRoot
+            val tools = compose.onNodeWithTag("actionToolbar").fetchSemanticsNode().boundsInRoot
+            assertTrue(board.right <= tools.left)
+            assertEquals(before.id, saved().game!!.id); assertEquals(before.values, saved().game!!.values); assertEquals(before.notes, saved().game!!.notes)
+        } finally { scenario.onActivity { it.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT } }
+    }
+    @Test fun corruptedPrimaryRecoversAndUnrecoverableFilesStayProtected() {
+        scenario.close(); val g = Game("recovery", puzzle).input(cell(), 3, true)
+        val bytes = ProfileCodec.encode(Profile(500, g)); File(file.path + ".bak").writeBytes(bytes); file.writeBytes(byteArrayOf(1, 2))
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("continueGame").fetchSemanticsNodes().isNotEmpty() }
+        continueGame(); compose.onNodeWithTag("cell_${cell()}").assert(SemanticsMatcher("Not kurtarıldı") { n -> n.config.getOrNull(SemanticsProperties.ContentDescription)?.any { it.contains("notlar 3") } == true })
+        compose.onNodeWithTag("pause").performClick(); waitSave { it.game!!.elapsedMillis > 0 }
+        scenario.close(); file.writeBytes(byteArrayOf(1, 2)); File(file.path + ".bak").delete()
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        compose.waitUntil(10_000) { compose.onAllNodesWithText("Kayıt açılamadı").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Kayıt açılamadı").assertExists(); compose.onNodeWithTag("continueGame").assertDoesNotExist(); assertArrayEquals(byteArrayOf(1, 2), file.readBytes())
+    }
+    @Test fun disabledSystemAnimationsStillShowCompleteResult() {
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        fun shell(command: String): String = android.os.ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand(command)).use { it.readBytes().toString(Charsets.UTF_8).trim() }
+        val original = shell("settings get global animator_duration_scale")
+        try {
+            shell("settings put global animator_duration_scale 0")
+            compose.waitUntil(10_000) { !android.animation.ValueAnimator.areAnimatorsEnabled() }
+            scenario.close(); val g = Game("done", puzzle, values = puzzle.solution, finished = true, elapsedMillis = 40_000)
+            ProfileStore(file).save(Profile(500).withGame(g))
+            scenario = ActivityScenario.launch(MainActivity::class.java)
+            compose.waitUntil(10_000) { compose.onAllNodesWithTag("statsTab").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("statsTab").performClick(); compose.onNodeWithTag("statsContinue").performScrollTo().performClick()
+            compose.onNodeWithTag("resultTime").assertTextEquals("00:40"); compose.onNodeWithTag("resultHome").performScrollTo().assertIsDisplayed()
+        } finally { shell(if (original == "null") "settings delete global animator_duration_scale" else "settings put global animator_duration_scale $original") }
+    }
+
 }

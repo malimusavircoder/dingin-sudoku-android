@@ -29,4 +29,18 @@ fun recordedStatistics(profile: Profile): RecordedStatistics {
 fun boardSizeDp(width: Float, height: Float, fontScale: Float): Float =
     minOf(width, maxOf(270f, height - 320f * fontScale.coerceAtLeast(1f)))
 fun keypadColumns(width: Float, fontScale: Float): Int =
-    if (width >= 9 * 48 + 8 * 4 && fontScale <= 1.2f) 9 else 5
+    if (width >= 9 * 48 + 8 * 6 && fontScale <= 1.2f) 9 else 5
+
+
+data class CompletionDetails(val elapsedMillis: Long, val bestMillis: Long?)
+fun completionDetails(game: Game, profile: Profile): CompletionDetails? {
+    if (!game.finished || game.values != game.puzzle.solution || !com.dingin.sudoku.core.Sudoku.complete(game.values)) return null
+    return CompletionDetails(game.elapsedMillis, profile.records.filter { it.difficulty == game.puzzle.difficulty }.minOfOrNull { it.elapsedMillis })
+}
+fun digitMarked(game: Game, selected: Int, digit: Int, noteMode: Boolean): Boolean {
+    if (selected !in 0..80 || digit !in 1..9) return false
+    return if (noteMode) game.values[selected] == 0 && game.notes[selected] and (1 shl (digit - 1)) != 0 else game.values[selected] == digit
+}
+fun useSplitGameLayout(width: Float, height: Float, fontScale: Float): Boolean =
+    width >= 680f && width > height && fontScale <= 1.3f
+fun celebrationAllowed(systemAnimationsEnabled: Boolean, motionScale: Float): Boolean = systemAnimationsEnabled && motionScale > 0f

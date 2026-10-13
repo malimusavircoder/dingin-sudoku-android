@@ -73,3 +73,12 @@ Ana menüde dar genişlik veya büyük yazı durumunda serif başlık küçülü
 İlerleme, başlangıç rakamlarını hariç tutarak doğru doldurulmuş düzenlenebilir hücreleri sayar; yanlış sayılar ve notlar ilerleme değildir, ipuçları dahildir. İstatistikler yalnız son 1.000 tamamlanan kayıt ve mevcut oyundan türetilir; toplam süre aynı oyun kimliğini iki kez saymaz. Başlatılan/bırakılan oyun geçmişi tutulmadığı için başarı oranı hesaplanamaz ve arayüz bunu açıklar. Veri biçimi ve motor değiştirilmemiştir.
 
 Bu sürümün testleri, ekran matrisi, güncelleme kontrolü ve sınırları `UI-0.1.2-RESULTS.md` raporunda yer alır. Önceki `DESIGN-CHANGES.md` ve `TEST-RESULTS.md` belgeleri tarihsel sürüm raporlarıdır.
+
+
+## 0.1.3 — oynanış ve kararlılık
+
+Çakışan rakamlar iki uçta × ile, çözüme uymayan diğer girişler ! ile gösterilir. Hata kontrolü bu iki sunumu birlikte yönetir; motorun hata sayacı değişmedi. Notlu seçili hücrede çerçeve, diğer seçimlerde köşe işaretleri kullanılır. Sayı tuşlarında seçili değer veya adaylar işaretlenir; dolu hücrede not girişinin etkisiz olması arayüzde de açıkça gösterilir.
+
+Geçerli bitişte ayrı sonuç paneli süre, zorluk, seviyenin kayıtlı en iyi süresi, aynı seviyede yeni oyun ve ana menü seçenekleri sunar. 300ms tek ikon hareketi sistem animasyonları kapalı veya motion scale 0 olduğunda atlanır. İstatistikler kayıtlı ilerleme/son sonucu gösterir; başarı oranı için eksik geçmiş üretilmez. Geniş yatay pencerede tahta ve kontroller yan yanadır; büyük yazıda tek sütun ve kaydırma korunur. Menü/oyun/istatistik kaydırmaları birbirine taşınmaz.
+
+Tahta sunumu yalnız değer/not/seçim değişikliklerine bağlı iç grid bileşenine ayrıldı; hata, çakışma, vurgu ve ilerleme hesapları remember ile tutulur. FPS veya enerji tüketimi ölçülmüş değildir. Motor, ViewModel, şema 1 deposu, applicationId, ikon ve imza korunmuştur. Ayrıntılı teslim ve test kapsamı `UI-0.1.3-RESULTS.md` içindedir. Önceki raporlar kendi sürümlerinin tarihsel kayıtlarıdır.

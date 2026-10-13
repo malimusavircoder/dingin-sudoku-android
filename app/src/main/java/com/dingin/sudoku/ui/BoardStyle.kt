@@ -10,11 +10,11 @@ enum class CellFill { BASE, RELATED, MATCHING, SELECTED, ERROR }
 
 @Immutable data class CellVisual(
     val selected: Boolean, val error: Boolean, val matching: Boolean,
-    val row: Boolean, val column: Boolean, val box: Boolean
+    val row: Boolean, val column: Boolean, val box: Boolean, val conflict: Boolean = false
 ) {
     // A selected mistake keeps its red fill. Selection remains visible as green corner marks.
     val fill: CellFill get() = when {
-        error -> CellFill.ERROR
+        error || conflict -> CellFill.ERROR
         selected -> CellFill.SELECTED
         matching -> CellFill.MATCHING
         row || column || box -> CellFill.RELATED
@@ -23,13 +23,13 @@ enum class CellFill { BASE, RELATED, MATCHING, SELECTED, ERROR }
 }
 
 /** Presentation only: it never changes a value, candidate, solution, or saved game. */
-fun cellVisual(values: List<Int>, index: Int, selection: Int, errors: Set<Int>): CellVisual {
+fun cellVisual(values: List<Int>, index: Int, selection: Int, errors: Set<Int>, conflicts: Set<Int> = emptySet()): CellVisual {
     require(values.size == 81 && index in 0..80)
     val hasSelection = selection in 0..80
     val sameCell = hasSelection && index == selection
     val selectedNumber = if (hasSelection) values[selection] else 0
     return CellVisual(
-        selected = sameCell,
+        selected = sameCell, conflict = index in conflicts,
         error = index in errors,
         matching = selectedNumber != 0 && values[index] == selectedNumber,
         row = hasSelection && !sameCell && index / 9 == selection / 9,
@@ -64,3 +64,10 @@ fun cellVisual(values: List<Int>, index: Int, selection: Int, errors: Set<Int>):
 val LocalBoardPalette = staticCompositionLocalOf { BoardPalette.Light }
 val CellFillKey = SemanticsPropertyKey<String>("DinginCellFill")
 var SemanticsPropertyReceiver.cellFill by CellFillKey
+
+
+/** Duplicate peers, including both ends of a clash; unrelated equal digits are allowed. */
+fun conflictingCells(values: List<Int>): Set<Int> {
+    require(values.size == 81)
+    return values.indices.filter { i -> values[i] != 0 && com.dingin.sudoku.core.Sudoku.peers[i].any { values[it] == values[i] } }.toSet()
+}
