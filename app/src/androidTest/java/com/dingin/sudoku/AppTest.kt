@@ -6,6 +6,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import com.dingin.sudoku.core.*
+import com.dingin.sudoku.ui.CellFillKey
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import org.junit.*
 import org.junit.Assert.*
 import java.io.File
@@ -55,7 +58,7 @@ class AppTest {
         compose.onNodeWithTag("cell_$i").performClick()
         compose.onNodeWithTag("digit_$wrong").performScrollTo().performClick()
         waitSave { it.game!!.mistakes == 1 }
-        compose.onNodeWithTag("cell_$i").assertContentDescriptionContains("Satır ${i / 9 + 1}, sütun ${i % 9 + 1}, sayı $wrong, yanlış")
+        compose.onNodeWithTag("cell_$i").assert(SemanticsMatcher("Hata açıklaması") { node -> node.config.getOrNull(SemanticsProperties.ContentDescription)?.any { it.contains("Satır ${i / 9 + 1}, sütun ${i % 9 + 1}, sayı $wrong, yanlış") } == true })
         compose.onNodeWithTag("settings").performScrollTo().performClick()
         compose.onNodeWithTag("theme_DARK").performClick()
         compose.onNodeWithTag("checkErrors").performClick()
@@ -101,5 +104,27 @@ class AppTest {
         compose.onNodeWithTag("statsTab").performClick()
         compose.onNodeWithTag("completedCount").assertTextEquals("1")
         scenario.recreate(); assertEquals(1, saved().records.size)
+    }
+    @Test fun boardStatesAndToolbarRemainConsistentInBothThemes() {
+        continueGame()
+        val i = cell(); val wrong = puzzle.solution[i] % 9 + 1
+        compose.onNodeWithTag("cell_$i").performClick()
+        compose.onNodeWithTag("digit_$wrong").performScrollTo().performClick()
+        waitSave { it.game!!.values[i] == wrong }
+        for (theme in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
+            compose.onNodeWithTag("settings").performScrollTo().performClick()
+            compose.onNodeWithTag("theme_${theme.name}").performClick()
+            compose.onNodeWithTag("closeSettings").performClick()
+            compose.onNodeWithTag("cell_$i").assertIsSelected().assert(SemanticsMatcher.expectValue(CellFillKey, "ERROR"))
+            compose.onNodeWithTag("cell_$i").assert(SemanticsMatcher("Hata açıklaması") { node -> node.config.getOrNull(SemanticsProperties.ContentDescription)?.any { it.contains("Satır ${i / 9 + 1}, sütun ${i % 9 + 1}, sayı $wrong, yanlış") } == true })
+            compose.onNodeWithTag("actionToolbar").assertExists()
+        }
+        compose.onNodeWithTag("notes").performScrollTo().performClick()
+        compose.onNodeWithTag("notes").assertIsSelected().assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Açık"))
+        compose.onNodeWithTag("notes").performClick()
+        compose.onNodeWithTag("notes").assertIsNotSelected()
+        compose.onNodeWithTag("undo").assertIsEnabled()
+        compose.onNodeWithTag("erase").assertIsEnabled()
+        compose.onNodeWithTag("hint").assertIsEnabled()
     }
 }

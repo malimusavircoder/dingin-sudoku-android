@@ -1,0 +1,5 @@
+<!-- Original Dingin monogram: a D with three quiet rhythm points, centered in the 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFF4DC" android:fillType="evenOdd" android:pathData="M33,28H50C68,28 79,38 79,54C79,70 68,80 50,80H33Q29,80 29,76V32Q29,28 33,28Z M40,39V69H50C61,69 68,63 68,54C68,45 61,39 50,39Z"/>
+    <path android:fillColor="#D6BA89" android:pathData="M47,52H49Q50,52 50,53V55Q50,56 49,56H47Q46,56 46,55V53Q46,52 47,52Z M54,52H56Q57,52 57,53V55Q57,56 56,56H54Q53,56 53,55V53Q53,52 54,52Z M61,52H63Q64,52 64,53V55Q64,56 63,56H61Q60,56 60,55V53Q60,52 61,52Z"/>
+</vector>

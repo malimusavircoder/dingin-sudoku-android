@@ -11,8 +11,9 @@ PowerShell (bu makinede):
 ```powershell
 $env:JAVA_HOME = 'C:\Program Files\Eclipse Adoptium\jdk-17.0.20.101-hotspot'
 $env:Path = "$env:JAVA_HOME\bin;$env:Path"
-.\gradlew.bat :core:test :app:assembleDebug :app:lintDebug
-# Bağlı emulator veya cihaz varsa:
+.\gradlew.bat :core:test :app:testDebugUnitTest :app:assembleDebug :app:lintDebug
+# Yalnız test emülatöründe; bu testler uygulama kayıtlarını sıfırlar!
+$env:ANDROID_SERIAL = 'emulator-5554'
 .\gradlew.bat :app:connectedDebugAndroidTest
 ```
 
@@ -54,3 +55,10 @@ Kayıt göstergesi tamamlandığında belge diske yazılmıştır. Asenkron kuyr
 - [Compose BOM eşleştirmesi](https://developer.android.com/develop/ui/compose/bom/bom-mapping)
 
 Doğrulama sonuçları teslim edilen test raporunda belirtilir. Kaynakta uygulanmış olmak, fiziksel cihazda doğrulanmış olmakla eşdeğer değildir.
+
+
+## 0.1.1 görsel düzenleme
+
+Yeşil/krem renkler, serif başlıklar ve Türkçe arayüz korunmuştur. Özgün D monogramı adaptif launcher ikonunda ve ana menüde kullanılır; Android 13+ için monochrome katmanı vardır. Tahta rolleri `BoardStyle.kt` içinde açık/koyu tema için ayrı opak renklerle tanımlıdır. Hata > seçim > aynı rakam > ilgili satır/sütun/blok > taban önceliği kullanılır. Hatalı seçim köşe işaretleriyle, hata ünlemle ayrıca anlatılır. Araç çubuğu ortak bir yüzeyde dört saydam dokunma alanı içerir; not modu etiket ve alt çizgiyle belirtilir.
+
+Bu sürümde motor, ViewModel ve kayıt biçimi değiştirilmemiştir. Ayrıntılar `DESIGN-CHANGES.md` içindedir. `TEST-RESULTS.md` ilk 0.1.0 sürümünün tarihsel raporudur.

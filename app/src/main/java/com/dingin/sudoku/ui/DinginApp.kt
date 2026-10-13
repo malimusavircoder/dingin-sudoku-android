@@ -6,6 +6,8 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,7 +18,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.*
@@ -121,10 +122,8 @@ fun timeText(millis: Long): String {
 
 @Composable private fun AppHeader(screen: Screen, onHome: () -> Unit, onSettings: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 22.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (screen == Screen.GAME) IconButton(onClick = onHome, modifier = Modifier.testTag("backHome")) { Icon(Icons.Outlined.ArrowBack, "Ana menü") }
-        else Surface(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(12.dp)) {
-            Icon(Icons.Outlined.GridView, null, Modifier.padding(10.dp).size(22.dp), tint = MaterialTheme.colorScheme.onPrimary)
-        }
+        if (screen == Screen.GAME) IconButton(onClick = onHome, modifier = Modifier.testTag("backHome")) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Ana menü") }
+        else BrandMark(Modifier.size(44.dp).testTag("brandMark"))
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
             Text("DİNGİN", style = MaterialTheme.typography.titleMedium, letterSpacing = 3.sp)
             Text("S U D O K U", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -164,7 +163,7 @@ fun timeText(millis: Long): String {
                     Text("Kaldığın yerden devam", style = MaterialTheme.typography.titleMedium)
                     Text("${game.puzzle.difficulty.title} · ${timeText(game.elapsedMillis)}", style = MaterialTheme.typography.bodySmall)
                 }
-                Icon(Icons.Outlined.ArrowForward, null)
+                Icon(Icons.AutoMirrored.Outlined.ArrowForward, null)
             }
         }
     }
@@ -195,7 +194,7 @@ fun timeText(millis: Long): String {
         }
     }
     Button(onClick = onStart, enabled = !state.generating, modifier = Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 56.dp).testTag("newGame"), shape = RoundedCornerShape(18.dp)) {
-        Text("Yeni oyun", fontSize = 16.sp); Spacer(Modifier.width(12.dp)); Icon(Icons.Outlined.ArrowForward, null, Modifier.size(20.dp))
+        Text("Yeni oyun", fontSize = 16.sp); Spacer(Modifier.width(12.dp)); Icon(Icons.AutoMirrored.Outlined.ArrowForward, null, Modifier.size(20.dp))
     }
     Text("Reklamsız. Hesapsız. Sadece Sudoku.", Modifier.fillMaxWidth().padding(top = 16.dp), textAlign = TextAlign.Center, color = colors.onSurfaceVariant, fontSize = 12.sp)
 }
@@ -250,12 +249,8 @@ fun timeText(millis: Long): String {
             }
         }
     } else {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Tool("Geri al", Icons.Outlined.Undo, false, !state.paused && game.history.isNotEmpty(), Modifier.weight(1f).testTag("undo"), model::undo)
-            Tool("Sil", Icons.Outlined.Backspace, false, !state.paused && !game.locked(state.selected), Modifier.weight(1f).testTag("erase"), model::erase)
-            Tool("Notlar", Icons.Outlined.EditNote, state.noteMode, !state.paused, Modifier.weight(1f).testTag("notes"), model::toggleNotes)
-            Tool("İpucu", Icons.Outlined.Lightbulb, false, !state.paused, Modifier.weight(1f).testTag("hint")) { hintDialog = true }
-        }
+        ActionToolbar(canUndo = game.history.isNotEmpty(), canErase = !game.locked(state.selected), enabled = !state.paused,
+            notesActive = state.noteMode, undo = model::undo, erase = model::erase, notes = model::toggleNotes, hint = { hintDialog = true })
         Spacer(Modifier.height(18.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             (1..9).forEach { n ->
@@ -274,66 +269,6 @@ fun timeText(millis: Long): String {
         text = { Text("Seçili hücreye doğru sayı yerleştirilir. Seçim yoksa boş veya yanlış bir hücre tamamlanır.") },
         confirmButton = { TextButton(onClick = { hintDialog = false; model.hint() }, modifier = Modifier.testTag("confirmHint")) { Text("İpucu kullan") } },
         dismissButton = { TextButton(onClick = { hintDialog = false }) { Text("Kendim deneyeyim") } })
-}
-
-@Composable private fun Tool(label: String, icon: ImageVector, selected: Boolean, enabled: Boolean, modifier: Modifier, action: () -> Unit) {
-    Surface(onClick = action, enabled = enabled, color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(16.dp), modifier = modifier) {
-        Column(Modifier.padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(icon, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = if (enabled) 1f else .3f))
-            Text(label, Modifier.padding(top = 5.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else .4f))
-        }
-    }
-}
-
-@Composable private fun SudokuBoard(game: Game, selected: Int, checkErrors: Boolean, onSelect: (Int) -> Unit) {
-    val colors = MaterialTheme.colorScheme
-    val errors = if (checkErrors) game.errors() else emptySet()
-    val selectedNumber = game.values.getOrNull(selected) ?: 0
-    Box(Modifier.widthIn(max = 450.dp).fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(12.dp)).background(colors.surface).testTag("board")) {
-        Column(Modifier.fillMaxSize()) {
-            (0..8).forEach { r ->
-                Row(Modifier.weight(1f).fillMaxWidth()) {
-                    (0..8).forEach { c ->
-                        val i = r * 9 + c; val value = game.values[i]
-                        val fill = when {
-                            selected == i -> colors.primaryContainer
-                            i in errors -> colors.errorContainer
-                            selectedNumber != 0 && value == selectedNumber -> colors.secondaryContainer.copy(alpha = .65f)
-                            selected >= 0 && (selected / 9 == r || selected % 9 == c || selected / 27 == r / 3 && selected % 9 / 3 == c / 3) -> colors.surfaceVariant.copy(alpha = .45f)
-                            else -> colors.surface
-                        }
-                        Box(Modifier.weight(1f).fillMaxHeight().background(fill).clickable(enabled = !game.finished) { onSelect(i) }
-                            .testTag("cell_$i").semantics {
-                                contentDescription = "Satır ${r + 1}, sütun ${c + 1}, " + (if (value == 0) "boş" else "sayı $value") +
-                                    (if (game.locked(i)) ", sabit" else "") + (if (i in errors) ", yanlış" else "")
-                                this.selected = selected == i
-                            }, contentAlignment = Alignment.Center) {
-                            if (value > 0) Text(value.toString(), fontSize = 22.sp, fontWeight = if (game.locked(i)) FontWeight.SemiBold else FontWeight.Normal,
-                                color = if (i in errors) colors.error else if (game.locked(i)) colors.onSurface else colors.primary)
-                            else if (game.notes[i] > 0) Column(Modifier.fillMaxSize().padding(2.dp)) {
-                                repeat(3) { nr -> Row(Modifier.weight(1f)) { repeat(3) { nc ->
-                                    val digit = nr * 3 + nc + 1
-                                    Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
-                                        Text(if (game.notes[i] and (1 shl (digit - 1)) != 0) digit.toString() else "", fontSize = 9.sp, lineHeight = 10.sp, color = colors.onSurfaceVariant)
-                                    }
-                                } } }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        Canvas(Modifier.matchParentSize()) {
-            val step = size.width / 9
-            for (line in 0..9) {
-                val thick = if (line % 3 == 0) 1.7.dp.toPx() else .5.dp.toPx()
-                val color = if (line % 3 == 0) colors.primary.copy(alpha = .65f) else colors.outline.copy(alpha = .8f)
-                drawLine(color, Offset(line * step, 0f), Offset(line * step, size.height), thick)
-                drawLine(color, Offset(0f, line * step), Offset(size.width, line * step), thick)
-            }
-        }
-    }
 }
 
 @Composable private fun Statistics(profile: Profile) {
