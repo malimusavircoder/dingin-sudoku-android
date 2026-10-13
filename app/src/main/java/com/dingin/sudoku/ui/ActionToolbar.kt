@@ -56,7 +56,7 @@ import androidx.compose.ui.unit.sp
     Column(modifier.then(interaction).heightIn(min = 64.dp).padding(horizontal = 3.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Icon(icon, null, Modifier.size(20.dp), tint = ink)
-        Text(label, Modifier.padding(top = 4.dp), fontSize = 11.sp, fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal, color = ink)
+        Text(label, Modifier.padding(top = 4.dp), fontSize = 12.sp, fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal, color = ink)
         Spacer(Modifier.height(3.dp))
         if (active) HorizontalDivider(Modifier.width(18.dp), thickness = 2.dp, color = colors.primary)
         else Spacer(Modifier.height(2.dp))

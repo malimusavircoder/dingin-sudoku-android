@@ -49,12 +49,12 @@ fun cellVisual(values: List<Int>, index: Int, selection: Int, errors: Set<Int>):
     }
     companion object {
         val Light = BoardPalette(
-            Color(0xFFFEFDF9), Color(0xFFEEF3EE), Color(0xFFF4E5CA), Color(0xFFD7EAE3), Color(0xFFFBE2DC),
+            Color(0xFFFEFDF9), Color(0xFFF1F4EF), Color(0xFFF3ECDD), Color(0xFFE1EDE5), Color(0xFFFBE2DC),
             Color(0xFF1D302C), Color(0xFF19594F), Color(0xFF496157), Color(0xFF9D2727),
             Color(0xFF19594F), Color(0xFF856239), Color(0xFF63796E), Color(0xFF3D6557)
         )
         val Dark = BoardPalette(
-            Color(0xFF182823), Color(0xFF20362E), Color(0xFF4E4030), Color(0xFF234D42), Color(0xFF4D2829),
+            Color(0xFF182823), Color(0xFF1F3029), Color(0xFF39362B), Color(0xFF2B4036), Color(0xFF4D2829),
             Color(0xFFE9EEE6), Color(0xFF9CD5C0), Color(0xFFB6C8BA), Color(0xFFFFB4AB),
             Color(0xFF9CD5C0), Color(0xFFE4C395), Color(0xFF698773), Color(0xFF9CBFA9)
         )

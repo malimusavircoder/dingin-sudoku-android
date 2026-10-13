@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -76,7 +77,11 @@ fun timeText(millis: Long): String {
                 }
             }
         }) { padding ->
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.TopCenter) {
+            BoxWithConstraints(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.TopCenter) {
+                val viewportHeight = maxHeight
+                val horizontalPadding = if (maxWidth < 400.dp) 16.dp else 24.dp
+                val contentWidth = minOf(maxWidth, 540.dp) - horizontalPadding * 2
+                val fontScale = LocalDensity.current.fontScale
                 if (!state.ready) CircularProgressIndicator(Modifier.align(Alignment.Center))
                 else if (state.fatalError) {
                     Column(Modifier.padding(32.dp).align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -86,13 +91,13 @@ fun timeText(millis: Long): String {
                         Button(onClick = model::retryLoad) { Text("Tekrar dene") }
                     }
                 } else {
-                    Column(Modifier.widthIn(max = 540.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
+                    Column(Modifier.widthIn(max = 540.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = horizontalPadding)) {
                         AppHeader(state.screen, onHome = { model.open(Screen.HOME) }, onSettings = { settings = true })
                         when (state.screen) {
-                            Screen.HOME -> Home(state, model) {
+                            Screen.HOME -> Home(state, model, contentWidth.value, fontScale) {
                                 if (state.profile.game?.finished == false) confirmNew = true else model.startNew()
                             }
-                            Screen.GAME -> state.profile.game?.let { GameScreen(state, it, model) }
+                            Screen.GAME -> state.profile.game?.let { GameScreen(state, it, model, contentWidth.value, (viewportHeight - 76.dp).value, fontScale) }
                             Screen.STATS -> Statistics(state.profile)
                         }
                         if (state.message != null && !state.generating) {
@@ -104,7 +109,7 @@ fun timeText(millis: Long): String {
                             }
                         }
                         if (state.saveError) TextButton(onClick = model::retrySave, modifier = Modifier.testTag("retrySave")) { Text("Tekrar kaydet") }
-                        Spacer(Modifier.height(24.dp))
+                        Spacer(Modifier.height(if (state.screen == Screen.GAME) 8.dp else 24.dp))
                     }
                 }
             }
@@ -121,7 +126,7 @@ fun timeText(millis: Long): String {
 }
 
 @Composable private fun AppHeader(screen: Screen, onHome: () -> Unit, onSettings: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 22.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(top = if (screen == Screen.GAME) 8.dp else 12.dp, bottom = if (screen == Screen.GAME) 12.dp else 18.dp), verticalAlignment = Alignment.CenterVertically) {
         if (screen == Screen.GAME) IconButton(onClick = onHome, modifier = Modifier.testTag("backHome")) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Ana menü") }
         else BrandMark(Modifier.size(44.dp).testTag("brandMark"))
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
@@ -132,24 +137,25 @@ fun timeText(millis: Long): String {
     }
 }
 
-@Composable private fun Home(state: UiState, model: GameViewModel, onStart: () -> Unit) {
+@Composable private fun Home(state: UiState, model: GameViewModel, width: Float, fontScale: Float, onStart: () -> Unit) {
     val colors = MaterialTheme.colorScheme
+    val compact = width < 360f || fontScale > 1.2f
     Surface(color = colors.primary, shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.background(Brush.linearGradient(listOf(colors.primary, colors.primary.copy(alpha = .85f)))).padding(26.dp)) {
+        Column(Modifier.background(Brush.linearGradient(listOf(colors.primary, colors.primary.copy(alpha = .85f)))).padding(if (compact) 18.dp else 22.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Spa, null, tint = colors.onPrimary.copy(alpha = .8f), modifier = Modifier.size(18.dp))
-                Text("  ZİHNİNE İYİ GELEN BİR MOLA", fontSize = 10.sp, letterSpacing = 1.sp, color = colors.onPrimary.copy(alpha = .8f))
+                Text("ZİHNİNE İYİ GELEN BİR MOLA", Modifier.weight(1f).padding(start = 8.dp), fontSize = 11.sp, letterSpacing = .5.sp, color = colors.onPrimary)
             }
-            Text("Bir mola.\nBir bulmaca.", Modifier.padding(top = 20.dp, bottom = 12.dp), style = MaterialTheme.typography.displaySmall, color = colors.onPrimary)
-            Text("Sayıların ritmini bul.\nKendi hızında, keyifle çöz.", color = colors.onPrimary.copy(alpha = .8f), style = MaterialTheme.typography.bodyMedium)
-            Row(Modifier.fillMaxWidth().padding(top = 24.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("Bir mola.\nBir bulmaca.", Modifier.padding(top = 14.dp, bottom = 10.dp).testTag("homeHeroTitle"), style = MaterialTheme.typography.displaySmall.copy(fontSize = if (compact) 28.sp else 34.sp, lineHeight = if (compact) 34.sp else 40.sp), color = colors.onPrimary)
+            Text("Sayıların ritmini bul.\nKendi hızında, keyifle çöz.", color = colors.onPrimary, style = MaterialTheme.typography.bodyMedium)
+            Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Surface(color = colors.onPrimary.copy(alpha = .12f), shape = RoundedCornerShape(50)) {
                     Row(Modifier.padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Outlined.WifiOff, null, Modifier.size(16.dp), tint = colors.onPrimary)
-                        Text("  Her zaman çevrimdışı", color = colors.onPrimary, fontSize = 11.sp)
+                        Text("  Her zaman çevrimdışı", color = colors.onPrimary, fontSize = 12.sp)
                     }
                 }
-                DecorativeGrid(colors.onPrimary)
+                if (!compact) DecorativeGrid(colors.onPrimary)
             }
         }
     }
@@ -170,7 +176,7 @@ fun timeText(millis: Long): String {
     Text("Bugünün temposunu seç", Modifier.padding(top = 28.dp, bottom = 6.dp), style = MaterialTheme.typography.headlineMedium)
     Text("Her bulmaca özgün. Her çözüm tek.", color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
     Spacer(Modifier.height(16.dp))
-    Difficulty.entries.chunked(2).forEach { pair ->
+    Difficulty.entries.chunked(if (width < 320f || fontScale > 1.3f) 1 else 2).forEach { pair ->
         Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             pair.forEach { difficulty ->
                 val index = difficulty.ordinal
@@ -207,63 +213,81 @@ fun timeText(millis: Long): String {
     }
 }
 
-@Composable private fun GameScreen(state: UiState, game: Game, model: GameViewModel) {
+@Composable private fun GameScreen(state: UiState, game: Game, model: GameViewModel, width: Float, height: Float, fontScale: Float) {
     val colors = MaterialTheme.colorScheme
+    val side = boardSizeDp(minOf(width, 450f), height, fontScale).dp
+    val progress = gameProgress(game)
     var hintDialog by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().padding(bottom = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(game.puzzle.difficulty.title, style = MaterialTheme.typography.headlineMedium)
-            Text(if (game.finished) "Harika bir çözüm." else "Bir hücre seç, bir adım at.", color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-        }
-        Surface(color = colors.surfaceVariant, shape = RoundedCornerShape(14.dp)) {
-            Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Timer, null, Modifier.size(16.dp), tint = colors.onSurfaceVariant)
-                Text("  ${timeText(game.elapsedMillis)}", fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.titleMedium, modifier = Modifier.testTag("timer"))
-            }
-        }
-        if (!game.finished) IconButton(onClick = model::pause, modifier = Modifier.testTag("pause")) {
-            Icon(if (state.paused) Icons.Outlined.PlayArrow else Icons.Outlined.Pause, if (state.paused) "Devam et" else "Duraklat")
-        }
-    }
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        if (state.paused) Surface(color = colors.surfaceVariant, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
-            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Outlined.Spa, null, Modifier.size(40.dp), tint = colors.primary)
-                Text("Küçük bir mola", Modifier.padding(top = 20.dp, bottom = 8.dp), style = MaterialTheme.typography.headlineMedium)
-                Text("Süre durdu. Bulmacan seni bekliyor.", fontSize = 13.sp, color = colors.onSurfaceVariant)
-                Button(onClick = model::pause, modifier = Modifier.padding(top = 24.dp).testTag("resume")) { Text("Devam et") }
-            }
-        } else SudokuBoard(game, state.selected, state.profile.checkErrors, model::select)
-    }
-    Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text("${game.values.count { it != 0 }} / 81 hücre", color = colors.onSurfaceVariant, fontSize = 12.sp)
-        Text(if (state.saveError) "Kayıt bekliyor" else if (state.savedRevision >= state.profile.revision) "Otomatik kaydedildi" else "Kaydediliyor…", color = if (state.saveError) colors.error else colors.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.testTag("saveStatus"))
-    }
-    if (game.finished) {
-        Surface(color = colors.primaryContainer, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth().testTag("completion")) {
-            Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Outlined.EmojiEvents, null, Modifier.size(44.dp), tint = colors.primary)
-                Text("Tebrikler, tamamladın!", Modifier.padding(vertical = 12.dp), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
-                Text("${timeText(game.elapsedMillis)} · ${game.hints} ipucu · ${game.mistakes} hata", fontSize = 13.sp)
-                Button(onClick = { model.open(Screen.HOME) }, modifier = Modifier.fillMaxWidth().padding(top = 18.dp)) { Text("Yeni bir bulmaca") }
-            }
-        }
-    } else {
-        ActionToolbar(canUndo = game.history.isNotEmpty(), canErase = !game.locked(state.selected), enabled = !state.paused,
-            notesActive = state.noteMode, undo = model::undo, erase = model::erase, notes = model::toggleNotes, hint = { hintDialog = true })
-        Spacer(Modifier.height(18.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            (1..9).forEach { n ->
-                Surface(onClick = { model.digit(n) }, enabled = !state.paused && !game.locked(state.selected), color = colors.surface,
-                    shape = RoundedCornerShape(10.dp), modifier = Modifier.weight(1f).heightIn(min = 54.dp).testTag("digit_$n")) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 12.dp)) {
-                        Text(n.toString(), fontSize = 23.sp, fontWeight = FontWeight.Medium, color = colors.primary)
+    Column(Modifier.fillMaxWidth().heightIn(min = height.coerceAtLeast(0f).dp).testTag("gameLayout"), verticalArrangement = Arrangement.SpaceBetween) {
+        Column {
+            Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(game.puzzle.difficulty.title, Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium)
+                Surface(color = colors.surfaceVariant, shape = RoundedCornerShape(12.dp)) {
+                    Row(Modifier.padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Outlined.Timer, null, Modifier.size(16.dp), tint = colors.onSurfaceVariant)
+                        Text("  ${timeText(game.elapsedMillis)}", fontFamily = FontFamily.Monospace,
+                            style = MaterialTheme.typography.titleMedium, modifier = Modifier.testTag("timer"))
                     }
                 }
+                if (!game.finished) IconButton(onClick = model::pause, modifier = Modifier.testTag("pause")) {
+                    Icon(if (state.paused) Icons.Outlined.PlayArrow else Icons.Outlined.Pause, if (state.paused) "Devam et" else "Duraklat")
+                }
+            }
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(side)) {
+                    if (state.paused) Surface(color = colors.surfaceVariant, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxSize()) {
+                        Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Outlined.Spa, null, Modifier.size(32.dp), tint = colors.primary)
+                            Text("Küçük bir mola", Modifier.padding(vertical = 12.dp), style = MaterialTheme.typography.headlineMedium)
+                            Text("Süre durdu. Bulmacan seni bekliyor.", textAlign = TextAlign.Center, color = colors.onSurfaceVariant)
+                            Button(onClick = model::pause, modifier = Modifier.padding(top = 16.dp).testTag("resume")) { Text("Devam et") }
+                        }
+                    } else SudokuBoard(game, state.selected, state.profile.checkErrors, model::select)
+                }
+            }
+            Column(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 12.dp)) {
+                LinearProgressIndicator(progress = { progress.fraction }, color = colors.primary, trackColor = colors.surfaceVariant,
+                    modifier = Modifier.fillMaxWidth().height(3.dp).testTag("gameProgress").semantics {
+                        contentDescription = "Doğru doldurulan ${progress.correct} / ${progress.required} hücre; başlangıç ${progress.givens}"
+                    })
+                Text("Başlangıç: ${progress.givens} · Doğru doldurulan: ${progress.correct} / ${progress.required}",
+                    Modifier.padding(top = 8.dp).testTag("progressCounts"), color = colors.onSurfaceVariant, fontSize = 12.sp)
+                Text(if (state.saveError) "Kayıt bekliyor" else if (state.savedRevision >= state.profile.revision) "Otomatik kaydedildi" else "Kaydediliyor…",
+                    color = if (state.saveError) colors.error else colors.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.testTag("saveStatus"))
             }
         }
-        Text(if (state.noteMode) "Not modu açık · Bir hücrenin adaylarını işaretle." else "İpucu seçili hücreyi doldurur. Süre cezası yok.",
-            Modifier.fillMaxWidth().padding(top = 14.dp), textAlign = TextAlign.Center, fontSize = 11.sp, color = colors.onSurfaceVariant)
+        Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+            if (game.finished) {
+                Surface(color = colors.primaryContainer, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth().testTag("completion")) {
+                    Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Outlined.EmojiEvents, null, Modifier.size(36.dp), tint = colors.primary)
+                        Text("Tebrikler, tamamladın!", Modifier.padding(vertical = 12.dp), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
+                        Text("${timeText(game.elapsedMillis)} · ${game.hints} ipucu · ${game.mistakes} hata", fontSize = 13.sp)
+                        Button(onClick = { model.open(Screen.HOME) }, modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) { Text("Yeni bir bulmaca") }
+                    }
+                }
+            } else {
+                ActionToolbar(canUndo = game.history.isNotEmpty(), canErase = !game.locked(state.selected), enabled = !state.paused,
+                    notesActive = state.noteMode, undo = model::undo, erase = model::erase, notes = model::toggleNotes, hint = { hintDialog = true })
+                Spacer(Modifier.height(12.dp))
+                (1..9).toList().chunked(keypadColumns(width, fontScale)).forEach { digits ->
+                    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        if (digits.size == 4) Spacer(Modifier.weight(.5f))
+                        digits.forEach { n ->
+                            Surface(onClick = { model.digit(n) }, enabled = !state.paused && !game.locked(state.selected), color = colors.surface,
+                                shape = RoundedCornerShape(10.dp), modifier = Modifier.weight(1f).heightIn(min = 56.dp).testTag("digit_$n")) {
+                                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 12.dp)) {
+                                    Text(n.toString(), fontSize = 23.sp, fontWeight = FontWeight.Medium, color = colors.primary)
+                                }
+                            }
+                        }
+                        if (digits.size == 4) Spacer(Modifier.weight(.5f))
+                    }
+                }
+                Text(if (state.noteMode) "Not modu açık · Adaylarını işaretle." else "Kendi hızında, bir hücre daha.",
+                    Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp).testTag("gameFooter"), textAlign = TextAlign.Center, fontSize = 12.sp, color = colors.onSurfaceVariant)
+            }
+        }
     }
     if (hintDialog) AlertDialog(onDismissRequest = { hintDialog = false }, title = { Text("Bir adım yardım ister misin?") },
         text = { Text("Seçili hücreye doğru sayı yerleştirilir. Seçim yoksa boş veya yanlış bir hücre tamamlanır.") },
@@ -273,33 +297,50 @@ fun timeText(millis: Long): String {
 
 @Composable private fun Statistics(profile: Profile) {
     val colors = MaterialTheme.colorScheme
+    val stats = recordedStatistics(profile)
     Text("Her adım bir ilerleme.", style = MaterialTheme.typography.headlineMedium)
-    Text("Tamamladığın bulmacaların küçük bir özeti.", Modifier.padding(top = 8.dp, bottom = 24.dp), color = colors.onSurfaceVariant)
+    Text("Cihazında kayıtlı oyunların özeti.", Modifier.padding(top = 8.dp, bottom = 18.dp), color = colors.onSurfaceVariant)
     Surface(color = colors.primaryContainer, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(24.dp)) {
-            Text(profile.records.size.toString(), fontSize = 48.sp, fontFamily = FontFamily.Serif, color = colors.primary, modifier = Modifier.testTag("completedCount"))
+        Column(Modifier.padding(20.dp)) {
+            Text(stats.completed.toString(), fontSize = 40.sp, fontFamily = FontFamily.Serif, color = colors.primary, modifier = Modifier.testTag("completedCount"))
             Text("Tamamlanan bulmaca", style = MaterialTheme.typography.titleMedium)
         }
     }
-    Spacer(Modifier.height(24.dp))
+    Spacer(Modifier.height(14.dp))
+    StatMetric("En iyi süre", stats.bestMillis?.let(::timeText) ?: "—", "statBest")
+    StatMetric("Ortalama süre", stats.averageMillis?.let(::timeText) ?: "—", "statAverage")
+    StatMetric("Kayıtlı toplam oyun süresi", timeText(stats.totalMillis), "statTotal")
+    StatMetric("Başarı oranı", "Hesaplanamıyor", "statSuccess")
+    Text("Başlatılan ve bırakılan oyun sayısı kaydedilmediği için başarı oranı hesaplanamaz.",
+        Modifier.padding(top = 2.dp, bottom = 18.dp), fontSize = 12.sp, color = colors.onSurfaceVariant)
     Difficulty.entries.forEach { d ->
         val records = profile.records.filter { it.difficulty == d }
-        Surface(color = colors.surface, shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
-            Column(Modifier.padding(18.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(d.title, style = MaterialTheme.typography.titleMedium); Text("${records.size} oyun", color = colors.onSurfaceVariant) }
-                Spacer(Modifier.height(10.dp))
-                Text(if (records.isEmpty()) "İlk çözümün burada yerini bekliyor." else "En iyi ${timeText(records.minOf { it.elapsedMillis })}  ·  Ortalama ${timeText(records.map { it.elapsedMillis }.average().toLong())}", fontSize = 12.sp, color = colors.onSurfaceVariant)
+        Surface(color = colors.surface, shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
+            Column(Modifier.padding(16.dp)) {
+                Text("${d.title} · ${records.size} oyun", style = MaterialTheme.typography.titleMedium)
+                Text(if (records.isEmpty()) "Henüz tamamlanan oyun yok." else "En iyi ${timeText(records.minOf { it.elapsedMillis })} · Ortalama ${timeText(records.map { it.elapsedMillis }.average().toLong())}",
+                    Modifier.padding(top = 6.dp), fontSize = 12.sp, color = colors.onSurfaceVariant)
             }
         }
     }
-    Text("İstatistikler bu cihazda saklanır. Son 1.000 tamamlanan oyun gösterilir.", fontSize = 12.sp, color = colors.onSurfaceVariant)
+    Text("Süreler son 1.000 tamamlanan oyuna ve mevcut oyun kaydına dayanır. Toplam süreye mevcut kayıt bir kez eklenir; önceki bırakılmış oyunların süreleri tutulmaz. Doğru doldurulan hücrelere ipucuyla doldurulanlar da dahildir.",
+        fontSize = 12.sp, color = colors.onSurfaceVariant)
+}
+
+@Composable private fun StatMetric(label: String, value: String, tag: String) {
+    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, Modifier.padding(top = 4.dp).testTag(tag), style = MaterialTheme.typography.titleLarge)
+        }
+    }
 }
 
 @Composable private fun SettingsDialog(state: UiState, model: GameViewModel, dismiss: () -> Unit) {
     AlertDialog(onDismissRequest = dismiss, title = { Text("Sana göre Sudoku") }, text = {
         Column {
             Text("Görünüm", style = MaterialTheme.typography.titleMedium)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 ThemeMode.entries.forEach { mode -> FilterChip(selected = state.profile.theme == mode, onClick = { model.theme(mode) }, label = { Text(mode.title) }, modifier = Modifier.testTag("theme_${mode.name}")) }
             }
             Spacer(Modifier.height(18.dp))

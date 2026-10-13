@@ -9,6 +9,7 @@ import com.dingin.sudoku.core.*
 import com.dingin.sudoku.ui.CellFillKey
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.graphics.toPixelMap
 import org.junit.*
 import org.junit.Assert.*
 import java.io.File
@@ -127,4 +128,47 @@ class AppTest {
         compose.onNodeWithTag("erase").assertIsEnabled()
         compose.onNodeWithTag("hint").assertIsEnabled()
     }
+    @Test fun progressStartsAtZeroAndCountsOnlyCorrectEditableCells() {
+        continueGame()
+        val initial = "Başlangıç: ${puzzle.givens.count { it != 0 }} · Doğru doldurulan: 0 / ${puzzle.givens.count { it == 0 }}"
+        compose.onNodeWithTag("progressCounts").assertTextEquals(initial)
+        val i = cell(); val wrong = puzzle.solution[i] % 9 + 1
+        compose.onNodeWithTag("cell_$i").performClick()
+        compose.onNodeWithTag("digit_$wrong").performScrollTo().performClick()
+        waitSave { it.game!!.values[i] == wrong }
+        compose.onNodeWithTag("progressCounts").assertTextEquals(initial)
+        compose.onNodeWithTag("hint").performScrollTo().performClick()
+        compose.onNodeWithTag("confirmHint").performClick()
+        waitSave { it.game!!.values[i] == puzzle.solution[i] }
+        compose.onNodeWithTag("progressCounts").assertTextEquals(initial.replace("doldurulan: 0", "doldurulan: 1"))
+    }
+    @Test fun statisticsShowActualTimesWithoutInventingSuccessRate() {
+        scenario.close()
+        ProfileStore(file).save(Profile(200, Game("ui-fixture", puzzle, elapsedMillis = 30_000),
+            listOf(Record("a", Difficulty.EASY, 60_000, 0, 0), Record("b", Difficulty.HARD, 120_000, 1, 2))))
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("statsTab").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("statsTab").performClick()
+        compose.onNodeWithTag("statBest").performScrollTo().assertTextEquals("01:00")
+        compose.onNodeWithTag("statAverage").performScrollTo().assertTextEquals("01:30")
+        compose.onNodeWithTag("statTotal").performScrollTo().assertTextEquals("03:30")
+        compose.onNodeWithTag("statSuccess").performScrollTo().assertTextEquals("Hesaplanamıyor")
+    }
+
+    @Test fun brandInkRemainsVisibleAfterThemeChanges() {
+        for (theme in listOf(ThemeMode.LIGHT, ThemeMode.DARK, ThemeMode.LIGHT)) {
+            compose.onNodeWithTag("settings").performClick()
+            compose.onNodeWithTag("theme_${theme.name}").performClick()
+            compose.onNodeWithTag("closeSettings").performClick()
+            compose.waitForIdle()
+            val pixels = compose.onNodeWithTag("brandMark").captureToImage().toPixelMap()
+            var cream = 0
+            for (x in pixels.width / 5 until pixels.width * 4 / 5) for (y in pixels.height / 5 until pixels.height * 4 / 5) {
+                val c = pixels[x, y]
+                if (c.red > .8f && c.green > .8f && c.blue > .6f) cream++
+            }
+            assertTrue("Monogram missing in $theme", cream > 10)
+        }
+    }
+
 }

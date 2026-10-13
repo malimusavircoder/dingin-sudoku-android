@@ -62,3 +62,14 @@ Doğrulama sonuçları teslim edilen test raporunda belirtilir. Kaynakta uygulan
 Yeşil/krem renkler, serif başlıklar ve Türkçe arayüz korunmuştur. Özgün D monogramı adaptif launcher ikonunda ve ana menüde kullanılır; Android 13+ için monochrome katmanı vardır. Tahta rolleri `BoardStyle.kt` içinde açık/koyu tema için ayrı opak renklerle tanımlıdır. Hata > seçim > aynı rakam > ilgili satır/sütun/blok > taban önceliği kullanılır. Hatalı seçim köşe işaretleriyle, hata ünlemle ayrıca anlatılır. Araç çubuğu ortak bir yüzeyde dört saydam dokunma alanı içerir; not modu etiket ve alt çizgiyle belirtilir.
 
 Bu sürümde motor, ViewModel ve kayıt biçimi değiştirilmemiştir. Ayrıntılar `DESIGN-CHANGES.md` içindedir. `TEST-RESULTS.md` ilk 0.1.0 sürümünün tarihsel raporudur.
+
+
+## 0.1.2 — telefon görüntülerine göre düzenleme
+
+Oyun ekranı kullanılabilir yüksekliği doldurur; dar ekranlarda sayı tuşları 5+4 düzeninde, 56dp minimum yükseklikte yerleşir. Tahta 450dp üst sınır ve 270dp okunabilirlik alt hedefiyle kare kalır; küçük pencerelerde dikey kaydırma kullanılır. Tahta hücreleri yoğun 9×9 geometrisi nedeniyle her ekranda 48dp olamaz; bunu genel erişilebilirlik uygunluğu olarak yorumlamayın.
+
+Ana menüde dar genişlik veya büyük yazı durumunda serif başlık küçülür; zorluk kartları gerektiğinde tek sütuna geçer. Hata renkleri korunurken seçim/aynı sayı/ilişkili hücre zeminleri yumuşatılmıştır. Aktif küçük metinlerde açık tema kontrastı iyileştirilmiştir.
+
+İlerleme, başlangıç rakamlarını hariç tutarak doğru doldurulmuş düzenlenebilir hücreleri sayar; yanlış sayılar ve notlar ilerleme değildir, ipuçları dahildir. İstatistikler yalnız son 1.000 tamamlanan kayıt ve mevcut oyundan türetilir; toplam süre aynı oyun kimliğini iki kez saymaz. Başlatılan/bırakılan oyun geçmişi tutulmadığı için başarı oranı hesaplanamaz ve arayüz bunu açıklar. Veri biçimi ve motor değiştirilmemiştir.
+
+Bu sürümün testleri, ekran matrisi, güncelleme kontrolü ve sınırları `UI-0.1.2-RESULTS.md` raporunda yer alır. Önceki `DESIGN-CHANGES.md` ve `TEST-RESULTS.md` belgeleri tarihsel sürüm raporlarıdır.

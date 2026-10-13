@@ -11,14 +11,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.dingin.sudoku.core.ThemeMode
 
-private val Light = lightColorScheme(
+val Light = lightColorScheme(
     primary = Color(0xFF19594F), onPrimary = Color.White, primaryContainer = Color(0xFFD7EAE3), onPrimaryContainer = Color(0xFF133C34),
     secondary = Color(0xFF856239), secondaryContainer = Color(0xFFF4E5CA), onSecondaryContainer = Color(0xFF4B341A),
     background = Color(0xFFF6F5F0), onBackground = Color(0xFF1D302C), surface = Color(0xFFFEFDF9), onSurface = Color(0xFF1D302C),
-    surfaceVariant = Color(0xFFECEFE8), onSurfaceVariant = Color(0xFF61716B), outline = Color(0xFFCAD1C8),
+    surfaceVariant = Color(0xFFECEFE8), onSurfaceVariant = Color(0xFF53665C), outline = Color(0xFFCAD1C8),
     error = Color(0xFFB44242), errorContainer = Color(0xFFFBE2DC)
 )
-private val Dark = darkColorScheme(
+val Dark = darkColorScheme(
     primary = Color(0xFF9CD5C0), onPrimary = Color(0xFF163E34), primaryContainer = Color(0xFF234D42), onPrimaryContainer = Color(0xFFD7EAE3),
     secondary = Color(0xFFE4C395), secondaryContainer = Color(0xFF4E4030), onSecondaryContainer = Color(0xFFF4E5CA),
     background = Color(0xFF111E1A), onBackground = Color(0xFFE9EEE6), surface = Color(0xFF182823), onSurface = Color(0xFFE9EEE6),
