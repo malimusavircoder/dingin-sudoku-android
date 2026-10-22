@@ -1,5 +1,9 @@
 # Dingin Sudoku
 
+> Offline Android Sudoku built with Kotlin and Jetpack Compose, featuring difficulty levels, notes, hints, undo and local progress saving.
+
+**Stack:** Kotlin · Jetpack Compose · Material 3 · MVVM
+
 Türkçe, çevrimdışı Android Sudoku. Kotlin, Jetpack Compose, Material 3 ve MVVM ile sıfırdan geliştirilmiştir. LibreSudoku kodu, marka veya varlıkları kullanılmamıştır. Analiz raporları yalnız işlevsel referanstır.
 
 ## Açma ve derleme
